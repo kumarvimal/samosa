@@ -259,6 +259,15 @@ def create_namespace_group(
         cmd = create_invoke_command(task_name, task_obj, ns_collection)
         ns_group.add_command(cmd)
 
+    # Add all sub-collections in this namespace
+    if hasattr(ns_collection, "collections"):
+        for subcol_name, subcol in ns_collection.collections.items():
+            # Create a sub-group for the sub-collection
+            subgroup = create_namespace_group(
+                subcol_name, subcol, None, is_primary=True, hidden=False
+            )
+            ns_group.add_command(subgroup)
+
     return ns_group
 
 

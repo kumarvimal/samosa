@@ -62,13 +62,23 @@ def create_main_collection() -> Collection:
         # Add as namespaced collection, avoiding conflicts with global tasks
         collection_name = module_name
         if collection_name not in global_task_names:
-            main_collection.add_collection(module, name=collection_name)
+            # Check if module has a custom collection (e.g., git_collection)
+            custom_collection = getattr(module, f"{module_name}_collection", None)
+            if custom_collection:
+                main_collection.add_collection(custom_collection, name=collection_name)
+            else:
+                main_collection.add_collection(module, name=collection_name)
 
         # Add short namespace if configured
         if config and config.short_name:
             short_name = config.short_name
             if short_name not in global_task_names:
-                main_collection.add_collection(module, name=short_name)
+                # Check if module has a custom collection for short name too
+                custom_collection = getattr(module, f"{module_name}_collection", None)
+                if custom_collection:
+                    main_collection.add_collection(custom_collection, name=short_name)
+                else:
+                    main_collection.add_collection(module, name=short_name)
         # If no config, create a simple short name (first letter)
         elif not config and len(module_name) > 1:
             short_name = module_name[0]
@@ -80,7 +90,12 @@ def create_main_collection() -> Collection:
                 short_name not in existing_short_names
                 and short_name not in global_task_names
             ):
-                main_collection.add_collection(module, name=short_name)
+                # Check if module has a custom collection for auto-discovered short name
+                custom_collection = getattr(module, f"{module_name}_collection", None)
+                if custom_collection:
+                    main_collection.add_collection(custom_collection, name=short_name)
+                else:
+                    main_collection.add_collection(module, name=short_name)
 
     return main_collection
 
