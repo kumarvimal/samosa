@@ -83,6 +83,57 @@ def checkout(ctx, branch, create=False):
         ctx.run(f"git checkout {branch}")
 
 
+@task
+def browse(ctx):
+    """Open current git repository in GitHub in the browser."""
+    import re
+    import webbrowser
+    
+    try:
+        # Get the remote URL
+        result = ctx.run("git remote get-url origin", hide=True)
+        remote_url = result.stdout.strip()
+        
+        if not remote_url:
+            print("❌ No remote 'origin' found")
+            return
+            
+        print(f"🔍 Found remote URL: {remote_url}")
+        
+        # Convert various Git URL formats to GitHub web URL
+        github_url = None
+        
+        # Handle SSH format: git@github.com:user/repo.git
+        ssh_match = re.match(r'git@github\.com:([^/]+)/(.+)\.git$', remote_url)
+        if ssh_match:
+            user, repo = ssh_match.groups()
+            github_url = f"https://github.com/{user}/{repo}"
+            
+        # Handle HTTPS format: https://github.com/user/repo.git
+        elif re.match(r'https://github\.com/([^/]+)/(.+?)\.git$', remote_url):
+            https_match = re.match(r'https://github\.com/([^/]+)/(.+?)\.git$', remote_url)
+            user, repo = https_match.groups()
+            github_url = f"https://github.com/{user}/{repo}"
+            
+        # Handle HTTPS without .git: https://github.com/user/repo
+        elif re.match(r'https://github\.com/([^/]+)/([^/]+)/?$', remote_url):
+            https_no_git_match = re.match(r'https://github\.com/([^/]+)/([^/]+)/?$', remote_url)
+            user, repo = https_no_git_match.groups()
+            github_url = f"https://github.com/{user}/{repo}"
+            
+        if github_url:
+            print(f"🌐 Opening: {github_url}")
+            webbrowser.open(github_url)
+            print("✅ Repository opened in browser!")
+        else:
+            print(f"❌ Could not parse GitHub URL from: {remote_url}")
+            print("💡 Supported formats: git@github.com:user/repo.git or https://github.com/user/repo.git")
+            
+    except Exception as e:
+        print(f"❌ Error opening repository: {e}")
+        print("💡 Make sure you're in a git repository with a GitHub remote")
+
+
 # Worktree subcommands
 @task
 def worktree_add(ctx, branch):
@@ -199,4 +250,5 @@ git_collection.add_task(push)
 git_collection.add_task(pull)
 git_collection.add_task(merge)
 git_collection.add_task(checkout)
+git_collection.add_task(browse)
 git_collection.add_collection(worktree_collection)

@@ -67,6 +67,7 @@ TASK_CONFIGS: Dict[str, TaskConfig] = {
             "pull",
             "merge",
             "checkout",
+            "browse",
         ],  # All via g.*
     ),
     "database": TaskConfig(
