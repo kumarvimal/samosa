@@ -59,6 +59,25 @@ def format_commands(self, ctx, formatter):
 main.format_commands = format_commands.__get__(main, click.Group)
 
 
+@main.command(hidden=True)
+@click.argument('shell', type=click.Choice(['bash', 'zsh', 'fish']))
+def completion_script(shell):
+    """Generate shell completion script."""
+    # Generate completion script for Click
+    from click.shell_completion import get_completion_class
+    import os
+    
+    shell_class = get_completion_class(shell)
+    if shell_class:
+        # Create proper shell completion instance
+        complete_var = f"_{shell.upper()}_COMPLETE"
+        shell_completion = shell_class(main, {}, 'samosa', complete_var)
+        click.echo(shell_completion.source())
+    else:
+        click.echo(f"Unsupported shell: {shell}")
+        sys.exit(1)
+
+
 def create_invoke_command(
     task_name: str, task_obj: Any, namespace_collection: Any = None
 ) -> click.Command:

@@ -52,7 +52,14 @@ TASK_CONFIGS: Dict[str, TaskConfig] = {
         short_name="u",
         description="Utility and helper tasks",
         global_tasks=["hello"],  # Only hello is global
-        namespaced_only=["info", "env", "install-alias", "uninstall-alias"],  # info/env only via utils.info, u.info
+        namespaced_only=[
+            "info", 
+            "env", 
+            "install-alias", 
+            "uninstall-alias",
+            "install-completion",
+            "uninstall-completion"
+        ],  # info/env only via utils.info, u.info
     ),
     "git": TaskConfig(
         module_name="git",
