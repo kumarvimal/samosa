@@ -160,3 +160,6 @@ cython_debug/
 *.iws
 *.iml
 *.ipr
+
+# Claude Code
+.claude/

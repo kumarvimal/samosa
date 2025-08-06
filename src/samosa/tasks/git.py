@@ -136,11 +136,13 @@ def browse(ctx):
 
 # Worktree subcommands
 @task
-def worktree_add(ctx, branch):
+def worktree_add(ctx, branch, base="", fetch=True):
     """Create a git worktree one directory up with project-name-branch format.
-
+    
     Args:
         branch: Branch name (e.g., feat/some-feature)
+        base: Base branch/commit to create new branch from (default: current branch)
+        fetch: Fetch latest remote changes before creating worktree (default: True)
     """
     # Get the current project directory name
     current_dir = Path.cwd()
@@ -158,27 +160,59 @@ def worktree_add(ctx, branch):
 
     print(f"Creating worktree for branch '{branch}' at: {worktree_path}")
 
-    # Create the worktree
     try:
-        # First check if branch exists remotely and fetch if needed
-        result = ctx.run("git branch -r", hide=True)
-        remote_branches = result.stdout
-
-        if f"origin/{branch}" in remote_branches:
-            print(f"Branch '{branch}' exists on remote, creating worktree...")
+        # Fetch latest changes if requested
+        if fetch:
+            print("🔄 Fetching latest changes...")
+            ctx.run("git fetch --all", warn=True)
+        
+        # Check if branch exists locally
+        local_result = ctx.run("git branch --list", hide=True, warn=True)
+        local_branches = local_result.stdout if local_result.ok else ""
+        
+        # Check if branch exists remotely
+        remote_result = ctx.run("git branch -r", hide=True, warn=True)
+        remote_branches = remote_result.stdout if remote_result.ok else ""
+        
+        branch_exists_locally = f" {branch}\n" in local_branches or f"* {branch}\n" in local_branches
+        branch_exists_remotely = f"origin/{branch}" in remote_branches
+        
+        if branch_exists_locally:
+            print(f"📍 Branch '{branch}' exists locally, creating worktree...")
             ctx.run(f"git worktree add {worktree_path} {branch}")
+            
+        elif branch_exists_remotely:
+            print(f"🌐 Branch '{branch}' exists on remote, creating tracking worktree...")
+            # Create worktree and set up proper tracking
+            ctx.run(f"git worktree add -b {branch} {worktree_path} origin/{branch}")
+            
         else:
-            print(
-                f"Branch '{branch}' not found on remote, creating new branch and worktree..."
-            )
-            ctx.run(f"git worktree add -b {branch} {worktree_path}")
+            # Create new branch
+            if base and base.strip():
+                print(f"🆕 Creating new branch '{branch}' from '{base}'...")
+                ctx.run(f"git worktree add -b {branch} {worktree_path} {base}")
+            else:
+                print(f"🆕 Creating new branch '{branch}' from current HEAD...")
+                ctx.run(f"git worktree add -b {branch} {worktree_path}")
 
         print(f"✅ Worktree created successfully!")
         print(f"📁 Location: {worktree_path}")
         print(f"🔄 To switch: cd {worktree_path}")
+        
+        # Show branch tracking info
+        try:
+            tracking_info = ctx.run(f"cd {worktree_path} && git branch -vv | head -1", hide=True, warn=True)
+            if tracking_info.ok:
+                print(f"🔗 Branch info: {tracking_info.stdout.strip()}")
+        except:
+            pass
 
     except Exception as e:
         print(f"❌ Error creating worktree: {e}")
+        print("💡 Best practices:")
+        print("   • For existing remote branch: samosa g worktree add feature-branch")
+        print("   • For new branch from main: samosa g worktree add new-feature --base main")
+        print("   • For new branch from current: samosa g worktree add new-feature")
         raise
 
 
