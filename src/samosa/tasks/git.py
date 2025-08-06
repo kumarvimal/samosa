@@ -88,63 +88,67 @@ def browse(ctx):
     """Open current git repository in GitHub in the browser."""
     import re
     import webbrowser
-    
+
     try:
         # Get the remote URL
         result = ctx.run("git remote get-url origin", hide=True)
         remote_url = result.stdout.strip()
-        
+
         if not remote_url:
             print("❌ No remote 'origin' found")
             return
-            
+
         print(f"🔍 Found remote URL: {remote_url}")
-        
+
         # Convert various Git URL formats to GitHub web URL
         github_url = None
-        
+
         # Handle SSH format: git@github.com:user/repo.git
-        ssh_match = re.match(r'git@github\.com:([^/]+)/(.+)\.git$', remote_url)
+        ssh_match = re.match(r"git@github\.com:([^/]+)/(.+)\.git$", remote_url)
         if ssh_match:
             user, repo = ssh_match.groups()
             github_url = f"https://github.com/{user}/{repo}"
-            
+
         # Handle HTTPS format: https://github.com/user/repo.git
-        elif re.match(r'https://github\.com/([^/]+)/(.+?)\.git$', remote_url):
-            https_match = re.match(r'https://github\.com/([^/]+)/(.+?)\.git$', remote_url)
+        elif re.match(r"https://github\.com/([^/]+)/(.+?)\.git$", remote_url):
+            https_match = re.match(
+                r"https://github\.com/([^/]+)/(.+?)\.git$", remote_url
+            )
             user, repo = https_match.groups()
             github_url = f"https://github.com/{user}/{repo}"
-            
+
         # Handle HTTPS without .git: https://github.com/user/repo
-        elif re.match(r'https://github\.com/([^/]+)/([^/]+)/?$', remote_url):
-            https_no_git_match = re.match(r'https://github\.com/([^/]+)/([^/]+)/?$', remote_url)
+        elif re.match(r"https://github\.com/([^/]+)/([^/]+)/?$", remote_url):
+            https_no_git_match = re.match(
+                r"https://github\.com/([^/]+)/([^/]+)/?$", remote_url
+            )
             user, repo = https_no_git_match.groups()
             github_url = f"https://github.com/{user}/{repo}"
-            
+
         if github_url:
             print(f"🌐 Opening: {github_url}")
             webbrowser.open(github_url)
             print("✅ Repository opened in browser!")
         else:
             print(f"❌ Could not parse GitHub URL from: {remote_url}")
-            print("💡 Supported formats: git@github.com:user/repo.git or https://github.com/user/repo.git")
-            
+            print(
+                "💡 Supported formats: git@github.com:user/repo.git or https://github.com/user/repo.git"
+            )
+
     except Exception as e:
         print(f"❌ Error opening repository: {e}")
         print("💡 Make sure you're in a git repository with a GitHub remote")
 
 
-# Worktree subcommands
 @task
 def worktree_add(ctx, branch, base="", fetch=True):
     """Create a git worktree one directory up with project-name-branch format.
-    
+
     Args:
         branch: Branch name (e.g., feat/some-feature)
         base: Base branch/commit to create new branch from (default: current branch)
         fetch: Fetch latest remote changes before creating worktree (default: True)
     """
-    # Get the current project directory name
     current_dir = Path.cwd()
     project_name = current_dir.name
 
@@ -165,27 +169,31 @@ def worktree_add(ctx, branch, base="", fetch=True):
         if fetch:
             print("🔄 Fetching latest changes...")
             ctx.run("git fetch --all", warn=True)
-        
+
         # Check if branch exists locally
         local_result = ctx.run("git branch --list", hide=True, warn=True)
         local_branches = local_result.stdout if local_result.ok else ""
-        
+
         # Check if branch exists remotely
         remote_result = ctx.run("git branch -r", hide=True, warn=True)
         remote_branches = remote_result.stdout if remote_result.ok else ""
-        
-        branch_exists_locally = f" {branch}\n" in local_branches or f"* {branch}\n" in local_branches
+
+        branch_exists_locally = (
+            f" {branch}\n" in local_branches or f"* {branch}\n" in local_branches
+        )
         branch_exists_remotely = f"origin/{branch}" in remote_branches
-        
+
         if branch_exists_locally:
             print(f"📍 Branch '{branch}' exists locally, creating worktree...")
             ctx.run(f"git worktree add {worktree_path} {branch}")
-            
+
         elif branch_exists_remotely:
-            print(f"🌐 Branch '{branch}' exists on remote, creating tracking worktree...")
+            print(
+                f"🌐 Branch '{branch}' exists on remote, creating tracking worktree..."
+            )
             # Create worktree and set up proper tracking
             ctx.run(f"git worktree add -b {branch} {worktree_path} origin/{branch}")
-            
+
         else:
             # Create new branch
             if base and base.strip():
@@ -198,10 +206,12 @@ def worktree_add(ctx, branch, base="", fetch=True):
         print(f"✅ Worktree created successfully!")
         print(f"📁 Location: {worktree_path}")
         print(f"🔄 To switch: cd {worktree_path}")
-        
+
         # Show branch tracking info
         try:
-            tracking_info = ctx.run(f"cd {worktree_path} && git branch -vv | head -1", hide=True, warn=True)
+            tracking_info = ctx.run(
+                f"cd {worktree_path} && git branch -vv | head -1", hide=True, warn=True
+            )
             if tracking_info.ok:
                 print(f"🔗 Branch info: {tracking_info.stdout.strip()}")
         except:
@@ -211,7 +221,9 @@ def worktree_add(ctx, branch, base="", fetch=True):
         print(f"❌ Error creating worktree: {e}")
         print("💡 Best practices:")
         print("   • For existing remote branch: samosa g worktree add feature-branch")
-        print("   • For new branch from main: samosa g worktree add new-feature --base main")
+        print(
+            "   • For new branch from main: samosa g worktree add new-feature --base main"
+        )
         print("   • For new branch from current: samosa g worktree add new-feature")
         raise
 

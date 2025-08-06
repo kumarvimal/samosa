@@ -60,18 +60,18 @@ main.format_commands = format_commands.__get__(main, click.Group)
 
 
 @main.command(hidden=True)
-@click.argument('shell', type=click.Choice(['bash', 'zsh', 'fish']))
+@click.argument("shell", type=click.Choice(["bash", "zsh", "fish"]))
 def completion_script(shell):
     """Generate shell completion script."""
     # Generate completion script for Click
     from click.shell_completion import get_completion_class
     import os
-    
+
     shell_class = get_completion_class(shell)
     if shell_class:
         # Create proper shell completion instance
         complete_var = f"_{shell.upper()}_COMPLETE"
-        shell_completion = shell_class(main, {}, 'samosa', complete_var)
+        shell_completion = shell_class(main, {}, "samosa", complete_var)
         click.echo(shell_completion.source())
     else:
         click.echo(f"Unsupported shell: {shell}")
@@ -178,10 +178,8 @@ def register_invoke_commands() -> None:
                 and module_config.short_name in collection.collections
             ):
                 ns_collection = collection.collections[module_config.short_name]
-                processed_collections.add(module_config.short_name)
             elif module_name in collection.collections:
                 ns_collection = collection.collections[module_name]
-                processed_collections.add(module_name)
 
             if ns_collection:
                 # Create the primary group with full name that shows both names in help
@@ -189,6 +187,11 @@ def register_invoke_commands() -> None:
                     module_name, ns_collection, module_config, is_primary=True
                 )
                 main.add_command(primary_group)
+
+                # Mark both module name and short name as processed
+                processed_collections.add(module_name)
+                if module_config.short_name:
+                    processed_collections.add(module_config.short_name)
 
                 # Register short name as a hidden alias (same group, different name)
                 if module_config.short_name and module_config.short_name != module_name:
@@ -208,34 +211,12 @@ def register_invoke_commands() -> None:
                 # This module was auto-discovered but not configured
                 ns_collection = collection.collections.get(module_name)
                 if ns_collection:
-                    # Create primary group with full module name
+                    # Create primary group with full module name only
                     primary_group = create_namespace_group(
                         module_name, ns_collection, None, is_primary=True
                     )
                     main.add_command(primary_group)
                     processed_collections.add(module_name)
-
-                    # Check if there's also a short name collection for this module
-                    short_name = module_name[0] if len(module_name) > 1 else None
-                    if (
-                        short_name
-                        and short_name in collection.collections
-                        and short_name not in processed_collections
-                    ):
-                        # Create alias group for short name
-                        short_ns_collection = collection.collections[short_name]
-                        alias_group = create_namespace_group(
-                            short_name,
-                            short_ns_collection,
-                            None,
-                            is_primary=False,
-                            hidden=True,
-                        )
-                        main.add_command(alias_group)
-                        processed_collections.add(short_name)
-
-                        # Update help name for primary group to show both
-                        primary_group._help_name = f"{module_name}({short_name})"
 
     except Exception:
         # If we can't load tasks, just continue with base CLI
