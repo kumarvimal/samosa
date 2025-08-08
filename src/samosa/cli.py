@@ -6,6 +6,39 @@ from typing import Any
 import click
 from invoke import Collection, Config, Context
 
+_logger = click.get_logger("samosa.cli")
+
+def get_version():
+    """Get version from package metadata or pyproject.toml."""
+    try:
+        # First try to get version from installed package metadata
+        try:
+            from importlib.metadata import version
+        except ImportError:
+            # Python < 3.8 fallback
+            from importlib_metadata import version
+        return version("samosa")
+    except Exception as e:
+        _logger.info("Could not get version from package metadata: %s", e)
+
+    try:
+        # Fallback: read from pyproject.toml (for development)
+        import tomllib
+        from pathlib import Path
+        
+        current_file = Path(__file__)
+        project_root = current_file.parent.parent.parent
+        pyproject_path = project_root / "pyproject.toml"
+        
+        if pyproject_path.exists():
+            with open(pyproject_path, "rb") as f:
+                config = tomllib.load(f)
+                return config.get("project", {}).get("version", "unknown")
+    except Exception as e:
+        _logger.warning("Could not get version from pyproject.toml: %s", e)
+
+    return "unknown"
+
 
 def load_invoke_collection() -> Collection:
     """Load the invoke tasks collection from packaged tasks."""
@@ -19,10 +52,10 @@ def load_invoke_collection() -> Collection:
 
 
 @click.group()
-@click.version_option(version="0.1.0", prog_name="samosa")
+@click.version_option(version=get_version(), prog_name="samosa")
 @click.pass_context
 def main(ctx: click.Context) -> None:
-    """Samosa - A Python CLI tool with invoke integration."""
+    """Samosa entry point."""
     # Store invoke collection in context for subcommands
     try:
         ctx.ensure_object(dict)
@@ -33,7 +66,6 @@ def main(ctx: click.Context) -> None:
         sys.exit(1)
 
 
-# Override the help formatter to use custom names
 def format_commands(self, ctx, formatter):
     """Custom formatter that uses _help_name if available."""
     commands = []
@@ -55,7 +87,6 @@ def format_commands(self, ctx, formatter):
             )
 
 
-# Apply the custom formatter to the main group
 main.format_commands = format_commands.__get__(main, click.Group)
 
 

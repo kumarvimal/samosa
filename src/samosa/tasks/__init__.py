@@ -13,19 +13,15 @@ def discover_task_modules():
     """Auto-discover all task modules in the tasks directory."""
     discovered_modules = {}
 
-    # Get the current package directory
     current_dir = Path(__file__).parent
 
-    # Find all Python files in the tasks directory
     for py_file in current_dir.glob("*.py"):
         module_name = py_file.stem
 
-        # Skip special files
         if module_name.startswith("_") or module_name in ["config"]:
             continue
 
         try:
-            # Import the module
             module = importlib.import_module(f".{module_name}", package="samosa.tasks")
             discovered_modules[module_name] = module
         except ImportError as e:
@@ -39,7 +35,6 @@ def create_main_collection() -> Collection:
     """Create the main task collection with auto-discovery."""
     main_collection = Collection()
 
-    # Get configured modules and discovered modules
     configs = get_all_configs()
     discovered_modules = discover_task_modules()
 
@@ -100,5 +95,4 @@ def create_main_collection() -> Collection:
     return main_collection
 
 
-# Create the main collection
 main_collection = create_main_collection()

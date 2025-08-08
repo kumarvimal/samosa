@@ -84,6 +84,63 @@ def checkout(ctx, branch, create=False):
 
 
 @task
+def sync(ctx, remote="origin", main_branch=""):
+    """Sync current branch with remote main.
+    
+    Fetches latest changes and merges remote main into current branch.
+    Auto-detects the default branch if not specified.
+    
+    Args:
+        remote: Remote name (default: origin)
+        main_branch: Main branch name (auto-detected if not provided)
+    """
+    try:
+        # Get current branch name
+        result = ctx.run("git branch --show-current", hide=True)
+        current_branch = result.stdout.strip()
+        
+        if not current_branch:
+            print("❌ Could not determine current branch")
+            return
+        
+        # Auto-detect main branch if not provided
+        if not main_branch or main_branch.strip() == "":
+            try:
+                # Try to get the default branch from remote HEAD
+                result = ctx.run(f"git symbolic-ref refs/remotes/{remote}/HEAD", hide=True, warn=True)
+                if result.ok:
+                    main_branch = result.stdout.strip().split('/')[-1]
+                else:
+                    # Fallback: try common main branch names
+                    for branch in ['main', 'master', 'develop']:
+                        result = ctx.run(f"git ls-remote --heads {remote} {branch}", hide=True, warn=True)
+                        if result.ok and result.stdout.strip():
+                            main_branch = branch
+                            break
+                    
+                    if not main_branch:
+                        main_branch = "main"
+                        
+            except Exception:
+                main_branch = "main"
+        
+        print(f"🔄 Syncing branch '{current_branch}' with {remote}/{main_branch}...")
+        
+        print("📥 Fetching latest changes...")
+        ctx.run(f"git fetch {remote}")
+        
+        print(f"🔀 Rebasing {current_branch} onto {remote}/{main_branch}...")
+        ctx.run(f"git rebase {remote}/{main_branch}")
+        
+        print("✅ Branch synced successfully!")
+        
+    except Exception as e:
+        print(f"❌ Error syncing branch: {e}")
+        print("💡 Make sure you have no uncommitted changes and the remote exists")
+        raise
+
+
+@task
 def browse(ctx):
     """Open current git repository in GitHub in the browser."""
     import re
@@ -296,5 +353,6 @@ git_collection.add_task(push)
 git_collection.add_task(pull)
 git_collection.add_task(merge)
 git_collection.add_task(checkout)
+git_collection.add_task(sync)
 git_collection.add_task(browse)
 git_collection.add_collection(worktree_collection)

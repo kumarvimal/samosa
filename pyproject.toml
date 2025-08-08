@@ -4,17 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "samosa"
-version = "0.1.0"
-description = "A Python CLI tool"
+version = "0.1.0-dev"
+description = "A Python CLI tool for task automation and project management"
 readme = "README.md"
 authors = [
     {name = "Kumar Vimal", email = "mail@kumarvimal.in"}
 ]
-license = {text = "MIT"}
+license = "MIT"
+keywords = ["cli", "automation", "tasks", "invoke", "git", "development", "tools"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
@@ -22,6 +22,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
 ]
 requires-python = ">=3.7"
 dependencies = [
@@ -29,6 +32,7 @@ dependencies = [
     "invoke>=2.0.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
+    "importlib_metadata>=1.0.0; python_version<'3.8'",
 ]
 
 [project.optional-dependencies]
@@ -41,6 +45,12 @@ dev = [
     "pre-commit>=3.0.0",
     "build>=1.0.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/kumarvimal/samosa"
+Repository = "https://github.com/kumarvimal/samosa"
+Documentation = "https://github.com/kumarvimal/samosa"
+"Bug Reports" = "https://github.com/kumarvimal/samosa/issues"
 
 [project.scripts]
 samosa = "samosa.cli:main"

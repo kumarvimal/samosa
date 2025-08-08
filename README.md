@@ -237,7 +237,3 @@ alias | grep samosa
 samosa u install-alias
 source ~/.zshrc  # or ~/.bashrc
 ```
-
-## License
-
-MIT License

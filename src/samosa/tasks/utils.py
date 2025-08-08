@@ -1,6 +1,59 @@
 """Utility and helper tasks."""
 
 from invoke import task
+import tomllib
+from pathlib import Path
+
+
+def get_project_config():
+    """Read project configuration from package metadata or pyproject.toml."""
+    config = {
+        "name": "samosa",
+        "version": "unknown",
+        "description": "A Python CLI tool for task automation and project management"
+    }
+    
+    try:
+        # First try to get info from installed package metadata
+        try:
+            from importlib.metadata import metadata, version
+        except ImportError:
+            # Python < 3.8 fallback
+            from importlib_metadata import metadata, version
+        meta = metadata("samosa")
+        config.update({
+            "name": meta.get("Name", "samosa"),
+            "version": version("samosa"),
+            "description": meta.get("Summary", config["description"])
+        })
+        return config
+    except Exception:
+        pass
+    
+    try:
+        # Fallback: read from pyproject.toml (for development)
+        # Find pyproject.toml (go up from current file location to project root)
+        current_file = Path(__file__)
+        project_root = current_file.parent.parent.parent.parent
+        pyproject_path = project_root / "pyproject.toml"
+        
+        if not pyproject_path.exists():
+            # Fallback: try current working directory
+            pyproject_path = Path.cwd() / "pyproject.toml"
+            
+        if pyproject_path.exists():
+            with open(pyproject_path, "rb") as f:
+                toml_config = tomllib.load(f)
+                project_config = toml_config.get("project", {})
+                config.update({
+                    "name": project_config.get("name", config["name"]),
+                    "version": project_config.get("version", config["version"]),
+                    "description": project_config.get("description", config["description"])
+                })
+    except Exception:
+        pass
+    
+    return config
 
 
 @task
@@ -16,9 +69,10 @@ def hello(ctx, name="World"):
 @task
 def info(ctx):
     """Show project information."""
-    print("Samosa CLI Tool")
-    print("Version: 0.1.0")
-    print("A Python CLI tool with invoke integration")
+    config = get_project_config()
+    print(f"{config['name'].title()} CLI Tool")
+    print(f"Version: {config['version']}")
+    print(config['description'])
 
 
 @task
