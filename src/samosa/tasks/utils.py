@@ -122,6 +122,28 @@ def install_alias(ctx, shell="auto"):
     print(f"🔍 Found samosa at: {samosa_path}")
     print(f"🐚 Configuring {shell} shell...")
 
+    # Check if 's' command/alias already exists in current session
+    try:
+        s_command_check = ctx.run("command -v s", hide=True, warn=True)
+        if s_command_check.ok:
+            s_path = s_command_check.stdout.strip()
+            print(f"⚠️  Warning: 's' command already exists: {s_path}")
+            
+            # Check if it's already pointing to samosa
+            if "samosa" in s_path or s_path == samosa_path:
+                print(f"✅ 's' already points to samosa!")
+                return
+            else:
+                response = input("❓ 's' exists but points elsewhere. Override? [y/N]: ").strip().lower()
+                if response not in ['y', 'yes']:
+                    print("❌ Installation cancelled to avoid conflicts")
+                    print(f"💡 The existing 's' command points to: {s_path}")
+                    return
+                print("🔄 Proceeding with override...")
+    except Exception:
+        # If command -v fails, assume 's' doesn't exist (which is fine)
+        pass
+
     # Define alias
     alias_line = 'alias s="samosa"'
 

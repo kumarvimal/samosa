@@ -1,12 +1,12 @@
 """CLI interface for samosa."""
-
+import logging
 import sys
 from typing import Any
 
 import click
 from invoke import Collection, Config, Context
 
-_logger = click.get_logger("samosa.cli")
+_logger = logging.getLogger(__name__)
 
 def get_version():
     """Get version from package metadata or pyproject.toml."""

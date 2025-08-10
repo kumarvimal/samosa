@@ -1,6 +1,6 @@
 # Samosa CLI
 
-A python-based utility CLI tool because I don't want to write bash scripts anymore.
+A Python-based utility CLI tool because I don't want to write bash scripts anymore.
 
 > Tl;DR: Usage example
 > 
