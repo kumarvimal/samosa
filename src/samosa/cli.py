@@ -1,11 +1,14 @@
 """CLI interface for samosa using Click."""
+
 import logging
-import sys
 from pathlib import Path
 
 import click
-from invoke import Context
 
+from .commands.dev import dev
+from .commands.git import git
+from .commands.local import local
+from .commands.utils import utils
 from .utils import AliasedGroup
 
 _logger = logging.getLogger(__name__)
@@ -27,11 +30,11 @@ def get_version():
     try:
         # Fallback: read from pyproject.toml (for development)
         import tomllib
-        
+
         current_file = Path(__file__)
         project_root = current_file.parent.parent.parent
         pyproject_path = project_root / "pyproject.toml"
-        
+
         if pyproject_path.exists():
             with open(pyproject_path, "rb") as f:
                 config = tomllib.load(f)
@@ -42,23 +45,18 @@ def get_version():
     return "unknown"
 
 
-# Import command groups
-from .commands.git import git
-from .commands.utils import utils
-from .commands.dev import dev
-
-
 @click.group(cls=AliasedGroup)
 @click.version_option(version=get_version(), prog_name="samosa")
 def main():
     """Samosa - A Python CLI tool for task automation and project management."""
-    pass
 
 
 # Add command groups with aliases
 main.add_command_with_aliases(git, name="git", aliases=["g"])
 main.add_command_with_aliases(utils, name="utils", aliases=["u"])
-main.add_command_with_aliases(dev, name="dev", aliases=["development"])
+main.add_command_with_aliases(dev, name="dev", aliases=["d", "development"])
+main.add_command_with_aliases(local, name="local", aliases=["l"])
+
 
 # Add simple hello command at root level
 @main.command()

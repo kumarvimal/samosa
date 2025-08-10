@@ -1,0 +1,12 @@
+# Project-specific configuration
+project:
+  name: "My Project"
+  version: "1.0.0"
+
+environments:
+  dev:
+    url: "http://localhost:3000"
+  staging:
+    url: "https://staging.myproject.com"
+  prod:
+    url: "https://myproject.com"
