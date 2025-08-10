@@ -1,8 +1,11 @@
-"""Utility and helper tasks."""
-
-from invoke import task
-import tomllib
+"""Utility and helper commands."""
+import os
+import shutil
+import subprocess
 from pathlib import Path
+
+import click
+from invoke import Context
 
 
 def get_project_config():
@@ -32,6 +35,8 @@ def get_project_config():
     
     try:
         # Fallback: read from pyproject.toml (for development)
+        import tomllib
+        
         # Find pyproject.toml (go up from current file location to project root)
         current_file = Path(__file__)
         project_root = current_file.parent.parent.parent.parent
@@ -56,46 +61,41 @@ def get_project_config():
     return config
 
 
-@task
-def hello(ctx, name="World"):
-    """Say hello to someone.
-
-    Args:
-        name: Name to greet (default: World)
-    """
-    print(f"Hello, {name}!")
+@click.group()
+def utils():
+    """Utility and helper commands."""
+    pass
 
 
-@task
-def info(ctx):
+@utils.command()
+def info():
     """Show project information."""
     config = get_project_config()
-    print(f"{config['name'].title()} CLI Tool")
-    print(f"Version: {config['version']}")
-    print(config['description'])
+    click.echo(f"{config['name'].title()} CLI Tool")
+    click.echo(f"Version: {config['version']}")
+    click.echo(config['description'])
 
 
-@task
-def env(ctx):
+@utils.command()
+def env():
     """Show environment information."""
     import platform
     import sys
+    
+    ctx = Context()
 
-    print(f"Python version: {sys.version}")
-    print(f"Platform: {platform.platform()}")
-    print(f"Working directory: {ctx.cwd}")
+    click.echo(f"Python version: {sys.version}")
+    click.echo(f"Platform: {platform.platform()}")
+    click.echo(f"Working directory: {ctx.cwd}")
 
 
-@task
-def install_alias(ctx, shell="auto"):
-    """Install shell alias 's' for samosa command.
-
-    Args:
-        shell: Shell to configure (auto, bash, zsh, fish). Default: auto-detect
-    """
-    import os
-    import shutil
-    from pathlib import Path
+@utils.command("install-alias")
+@click.option("--shell", default="auto", 
+              type=click.Choice(["auto", "bash", "zsh", "fish"]),
+              help="Shell to configure (auto, bash, zsh, fish). Default: auto-detect")
+def install_alias(shell):
+    """Install shell alias 's' for samosa command."""
+    ctx = Context()
 
     # Detect shell if auto
     if shell == "auto":
@@ -107,39 +107,39 @@ def install_alias(ctx, shell="auto"):
         elif "fish" in shell_path:
             shell = "fish"
         else:
-            print(
-                "⚠️  Could not auto-detect shell. Please specify: --shell bash|zsh|fish"
+            click.echo(
+                "⚠️  Could not auto-detect shell. Please specify: --shell bash|zsh|fish",
+                err=True
             )
             return
 
     # Check if samosa is available
     samosa_path = shutil.which("samosa")
     if not samosa_path:
-        print("❌ samosa command not found in PATH")
-        print("💡 Make sure samosa is installed globally first")
+        click.echo("❌ samosa command not found in PATH", err=True)
+        click.echo("💡 Make sure samosa is installed globally first")
         return
 
-    print(f"🔍 Found samosa at: {samosa_path}")
-    print(f"🐚 Configuring {shell} shell...")
+    click.echo(f"🔍 Found samosa at: {samosa_path}")
+    click.echo(f"🐚 Configuring {shell} shell...")
 
     # Check if 's' command/alias already exists in current session
     try:
         s_command_check = ctx.run("command -v s", hide=True, warn=True)
         if s_command_check.ok:
             s_path = s_command_check.stdout.strip()
-            print(f"⚠️  Warning: 's' command already exists: {s_path}")
+            click.echo(f"⚠️  Warning: 's' command already exists: {s_path}")
             
             # Check if it's already pointing to samosa
             if "samosa" in s_path or s_path == samosa_path:
-                print(f"✅ 's' already points to samosa!")
+                click.echo(f"✅ 's' already points to samosa!")
                 return
             else:
-                response = input("❓ 's' exists but points elsewhere. Override? [y/N]: ").strip().lower()
-                if response not in ['y', 'yes']:
-                    print("❌ Installation cancelled to avoid conflicts")
-                    print(f"💡 The existing 's' command points to: {s_path}")
+                if not click.confirm("❓ 's' exists but points elsewhere. Override?"):
+                    click.echo("❌ Installation cancelled to avoid conflicts")
+                    click.echo(f"💡 The existing 's' command points to: {s_path}")
                     return
-                print("🔄 Proceeding with override...")
+                click.echo("🔄 Proceeding with override...")
     except Exception:
         # If command -v fails, assume 's' doesn't exist (which is fine)
         pass
@@ -173,7 +173,7 @@ def install_alias(ctx, shell="auto"):
                     alias_exists = True
 
         if alias_exists:
-            print(f"✅ Alias 's' already exists in {config_path}")
+            click.echo(f"✅ Alias 's' already exists in {config_path}")
             success = True
             continue
 
@@ -182,46 +182,42 @@ def install_alias(ctx, shell="auto"):
             with open(config_path, "a") as f:
                 f.write(f"\n# Samosa CLI alias\n{alias_line}\n")
 
-            print(f"✅ Added alias to {config_path}")
+            click.echo(f"✅ Added alias to {config_path}")
             success = True
 
         except Exception as e:
-            print(f"❌ Failed to write to {config_path}: {e}")
+            click.echo(f"❌ Failed to write to {config_path}: {e}", err=True)
             continue
 
     if success:
-        print(f"\n🎉 Shell alias installed successfully!")
-        print(f"📝 Added: {alias_line}")
-        print(f"\n🔄 To use the alias, either:")
-        print(f"   • Restart your terminal, or")
+        click.echo(f"\n🎉 Shell alias installed successfully!")
+        click.echo(f"📝 Added: {alias_line}")
+        click.echo(f"\n🔄 To use the alias, either:")
+        click.echo(f"   • Restart your terminal, or")
         if shell == "zsh":
-            print(f"   • Run: source ~/.zshrc")
+            click.echo(f"   • Run: source ~/.zshrc")
         elif shell == "bash":
-            print(f"   • Run: source ~/.bashrc")
+            click.echo(f"   • Run: source ~/.bashrc")
         elif shell == "fish":
-            print(f"   • Run: source ~/.config/fish/config.fish")
+            click.echo(f"   • Run: source ~/.config/fish/config.fish")
 
-        print(f"\n✨ Now you can use:")
-        print(f"   s g status    # instead of samosa g status")
-        print(f"   s lint        # instead of samosa lint")
-        print(f"   s --help      # instead of samosa --help")
+        click.echo(f"\n✨ Now you can use:")
+        click.echo(f"   s git status    # instead of samosa git status")
+        click.echo(f"   s utils info    # instead of samosa utils info")
+        click.echo(f"   s --help        # instead of samosa --help")
 
     else:
-        print("❌ Failed to install alias to any config file")
-        print(f"💡 You can manually add this line to your shell config:")
-        print(f"   {alias_line}")
+        click.echo("❌ Failed to install alias to any config file", err=True)
+        click.echo(f"💡 You can manually add this line to your shell config:")
+        click.echo(f"   {alias_line}")
 
 
-@task
-def uninstall_alias(ctx, shell="auto"):
-    """Remove shell alias 's' for samosa command.
-
-    Args:
-        shell: Shell to configure (auto, bash, zsh, fish). Default: auto-detect
-    """
-    import os
-    from pathlib import Path
-
+@utils.command("uninstall-alias")
+@click.option("--shell", default="auto",
+              type=click.Choice(["auto", "bash", "zsh", "fish"]),
+              help="Shell to configure (auto, bash, zsh, fish). Default: auto-detect")
+def uninstall_alias(shell):
+    """Remove shell alias 's' for samosa command."""
     # Detect shell if auto
     if shell == "auto":
         shell_path = os.environ.get("SHELL", "").lower()
@@ -232,12 +228,13 @@ def uninstall_alias(ctx, shell="auto"):
         elif "fish" in shell_path:
             shell = "fish"
         else:
-            print(
-                "⚠️  Could not auto-detect shell. Please specify: --shell bash|zsh|fish"
+            click.echo(
+                "⚠️  Could not auto-detect shell. Please specify: --shell bash|zsh|fish",
+                err=True
             )
             return
 
-    print(f"🐚 Removing samosa alias from {shell} shell...")
+    click.echo(f"🐚 Removing samosa alias from {shell} shell...")
 
     # Shell-specific configuration files
     config_files = {
@@ -284,33 +281,27 @@ def uninstall_alias(ctx, shell="auto"):
             if len(new_lines) != len(lines):
                 with open(config_path, "w") as f:
                     f.writelines(new_lines)
-                print(f"✅ Removed alias from {config_path}")
+                click.echo(f"✅ Removed alias from {config_path}")
                 success = True
             else:
-                print(f"ℹ️  No alias found in {config_path}")
+                click.echo(f"ℹ️  No alias found in {config_path}")
 
         except Exception as e:
-            print(f"❌ Failed to modify {config_path}: {e}")
+            click.echo(f"❌ Failed to modify {config_path}: {e}", err=True)
 
     if success:
-        print(f"\n🗑️  Shell alias removed!")
-        print(f"🔄 Restart your terminal or source your shell config to apply changes")
+        click.echo(f"\n🗑️  Shell alias removed!")
+        click.echo(f"🔄 Restart your terminal or source your shell config to apply changes")
     else:
-        print("ℹ️  No samosa aliases found to remove")
+        click.echo("ℹ️  No samosa aliases found to remove")
 
 
-@task
-def install_completion(ctx, shell="auto"):
-    """Install shell completion for samosa command.
-
-    Args:
-        shell: Shell to configure (auto, bash, zsh, fish). Default: auto-detect
-    """
-    import os
-    import shutil
-    import subprocess
-    from pathlib import Path
-
+@utils.command("install-completion")
+@click.option("--shell", default="auto",
+              type=click.Choice(["auto", "bash", "zsh", "fish"]),
+              help="Shell to configure (auto, bash, zsh, fish). Default: auto-detect")
+def install_completion(shell):
+    """Install shell completion for samosa command."""
     # Detect shell if auto
     if shell == "auto":
         shell_path = os.environ.get("SHELL", "").lower()
@@ -321,26 +312,27 @@ def install_completion(ctx, shell="auto"):
         elif "fish" in shell_path:
             shell = "fish"
         else:
-            print(
-                "⚠️  Could not auto-detect shell. Please specify: --shell bash|zsh|fish"
+            click.echo(
+                "⚠️  Could not auto-detect shell. Please specify: --shell bash|zsh|fish",
+                err=True
             )
             return
 
     # Check if samosa is available
     samosa_path = shutil.which("samosa")
     if not samosa_path:
-        print("❌ samosa command not found in PATH")
-        print("💡 Make sure samosa is installed globally first")
+        click.echo("❌ samosa command not found in PATH", err=True)
+        click.echo("💡 Make sure samosa is installed globally first")
         return
 
-    print(f"🔍 Found samosa at: {samosa_path}")
-    print(f"🐚 Installing {shell} completion...")
+    click.echo(f"🔍 Found samosa at: {samosa_path}")
+    click.echo(f"🐚 Installing {shell} completion...")
 
     try:
         if shell == "bash":
             # Generate bash completion script
             result = subprocess.run(
-                [samosa_path, "completion-script", "bash"],
+                [samosa_path, "--complete", "bash"],
                 capture_output=True,
                 text=True,
                 check=True,
@@ -361,7 +353,7 @@ def install_completion(ctx, shell="auto"):
                     if "completions" in str(comp_path):
                         with open(comp_path, "w") as f:
                             f.write(completion_script)
-                        print(f"✅ Installed completion to {comp_path}")
+                        click.echo(f"✅ Installed completion to {comp_path}")
                         break
                     else:
                         # For .bash_completion, append
@@ -369,29 +361,25 @@ def install_completion(ctx, shell="auto"):
                         if comp_path.exists():
                             with open(comp_path, "r") as f:
                                 if completion_marker in f.read():
-                                    print(
+                                    click.echo(
                                         f"✅ Completion already exists in {comp_path}"
                                     )
                                     break
 
                         with open(comp_path, "a") as f:
                             f.write(f"\n{completion_marker}\n{completion_script}\n")
-                        print(f"✅ Added completion to {comp_path}")
+                        click.echo(f"✅ Added completion to {comp_path}")
                         break
                 except Exception as e:
-                    print(f"⚠️  Failed to write to {comp_path}: {e}")
+                    click.echo(f"⚠️  Failed to write to {comp_path}: {e}")
                     continue
 
         elif shell == "zsh":
-            # Generate zsh completion script
-            result = subprocess.run(
-                [samosa_path, "completion-script", "zsh"],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            completion_script = result.stdout
-
+            # For zsh, Click provides built-in completion
+            completion_script = f"""#compdef samosa
+eval "$(_SAMOSA_COMPLETE=zsh_complete samosa)"
+"""
+            
             # Install to zsh completion directory
             zsh_comp_dir = Path("~/.zsh/completions").expanduser()
             zsh_comp_dir.mkdir(parents=True, exist_ok=True)
@@ -399,7 +387,7 @@ def install_completion(ctx, shell="auto"):
             comp_file = zsh_comp_dir / "_samosa"
             with open(comp_file, "w") as f:
                 f.write(completion_script)
-            print(f"✅ Installed completion to {comp_file}")
+            click.echo(f"✅ Installed completion to {comp_file}")
 
             # Add to .zshrc if not already there
             zshrc_path = Path("~/.zshrc").expanduser()
@@ -415,20 +403,15 @@ def install_completion(ctx, shell="auto"):
                             f.write(
                                 f"\n# Samosa completion setup\n{completion_setup}\n"
                             )
-                        print(f"✅ Added completion setup to {zshrc_path}")
+                        click.echo(f"✅ Added completion setup to {zshrc_path}")
                     else:
-                        print(f"✅ Completion setup already in {zshrc_path}")
+                        click.echo(f"✅ Completion setup already in {zshrc_path}")
 
         elif shell == "fish":
-            # Generate fish completion script
-            result = subprocess.run(
-                [samosa_path, "completion-script", "fish"],
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            completion_script = result.stdout
-
+            # For fish, Click provides built-in completion
+            completion_script = f"""eval (env _SAMOSA_COMPLETE=fish_complete samosa)
+"""
+            
             # Install to fish completion directory
             fish_comp_dir = Path("~/.config/fish/completions").expanduser()
             fish_comp_dir.mkdir(parents=True, exist_ok=True)
@@ -436,41 +419,37 @@ def install_completion(ctx, shell="auto"):
             comp_file = fish_comp_dir / "samosa.fish"
             with open(comp_file, "w") as f:
                 f.write(completion_script)
-            print(f"✅ Installed completion to {comp_file}")
+            click.echo(f"✅ Installed completion to {comp_file}")
 
-        print(f"\n🎉 Shell completion installed successfully!")
-        print(f"\n🔄 To activate completion:")
+        click.echo(f"\n🎉 Shell completion installed successfully!")
+        click.echo(f"\n🔄 To activate completion:")
         if shell == "bash":
-            print(f"   • Restart terminal or run: source ~/.bash_completion")
+            click.echo(f"   • Restart terminal or run: source ~/.bash_completion")
         elif shell == "zsh":
-            print(f"   • Restart terminal or run: exec zsh")
+            click.echo(f"   • Restart terminal or run: exec zsh")
         elif shell == "fish":
-            print(f"   • Restart terminal or start new fish session")
+            click.echo(f"   • Restart terminal or start new fish session")
 
-        print(f"\n✨ Now you can use TAB completion:")
-        print(f"   samosa <TAB>     # Show all commands")
-        print(f"   samosa g <TAB>   # Show git commands")
-        print(f"   samosa git w<TAB> # Complete 'worktree'")
+        click.echo(f"\n✨ Now you can use TAB completion:")
+        click.echo(f"   samosa <TAB>         # Show all commands")
+        click.echo(f"   samosa git <TAB>     # Show git commands")
+        click.echo(f"   samosa git backup <TAB> # Show backup commands")
 
     except subprocess.CalledProcessError as e:
-        print(f"❌ Failed to generate completion script: {e}")
-        print(
-            "💡 Make sure you're using Click framework version that supports --completion"
+        click.echo(f"❌ Failed to generate completion script: {e}", err=True)
+        click.echo(
+            "💡 Using Click's built-in completion system instead"
         )
     except Exception as e:
-        print(f"❌ Error installing completion: {e}")
+        click.echo(f"❌ Error installing completion: {e}", err=True)
 
 
-@task
-def uninstall_completion(ctx, shell="auto"):
-    """Remove shell completion for samosa command.
-
-    Args:
-        shell: Shell to configure (auto, bash, zsh, fish). Default: auto-detect
-    """
-    import os
-    from pathlib import Path
-
+@utils.command("uninstall-completion")
+@click.option("--shell", default="auto",
+              type=click.Choice(["auto", "bash", "zsh", "fish"]),
+              help="Shell to configure (auto, bash, zsh, fish). Default: auto-detect")
+def uninstall_completion(shell):
+    """Remove shell completion for samosa command."""
     # Detect shell if auto
     if shell == "auto":
         shell_path = os.environ.get("SHELL", "").lower()
@@ -481,12 +460,13 @@ def uninstall_completion(ctx, shell="auto"):
         elif "fish" in shell_path:
             shell = "fish"
         else:
-            print(
-                "⚠️  Could not auto-detect shell. Please specify: --shell bash|zsh|fish"
+            click.echo(
+                "⚠️  Could not auto-detect shell. Please specify: --shell bash|zsh|fish",
+                err=True
             )
             return
 
-    print(f"🐚 Removing {shell} completion...")
+    click.echo(f"🐚 Removing {shell} completion...")
 
     success = False
 
@@ -502,7 +482,7 @@ def uninstall_completion(ctx, shell="auto"):
                 if "completions" in str(comp_path):
                     # Remove the entire file
                     comp_path.unlink()
-                    print(f"✅ Removed {comp_path}")
+                    click.echo(f"✅ Removed {comp_path}")
                     success = True
                 else:
                     # Remove from .bash_completion file
@@ -526,33 +506,33 @@ def uninstall_completion(ctx, shell="auto"):
                         if len(new_lines) != len(lines):
                             with open(comp_path, "w") as f:
                                 f.writelines(new_lines)
-                            print(f"✅ Removed completion from {comp_path}")
+                            click.echo(f"✅ Removed completion from {comp_path}")
                             success = True
                     except Exception as e:
-                        print(f"⚠️  Failed to modify {comp_path}: {e}")
+                        click.echo(f"⚠️  Failed to modify {comp_path}: {e}")
 
     elif shell == "zsh":
         # Remove zsh completion file
         comp_file = Path("~/.zsh/completions/_samosa").expanduser()
         if comp_file.exists():
             comp_file.unlink()
-            print(f"✅ Removed {comp_file}")
+            click.echo(f"✅ Removed {comp_file}")
             success = True
         else:
-            print(f"ℹ️  No completion file found at {comp_file}")
+            click.echo(f"ℹ️  No completion file found at {comp_file}")
 
     elif shell == "fish":
         # Remove fish completion file
         comp_file = Path("~/.config/fish/completions/samosa.fish").expanduser()
         if comp_file.exists():
             comp_file.unlink()
-            print(f"✅ Removed {comp_file}")
+            click.echo(f"✅ Removed {comp_file}")
             success = True
         else:
-            print(f"ℹ️  No completion file found at {comp_file}")
+            click.echo(f"ℹ️  No completion file found at {comp_file}")
 
     if success:
-        print(f"\n🗑️  Shell completion removed!")
-        print(f"🔄 Restart your terminal to apply changes")
+        click.echo(f"\n🗑️  Shell completion removed!")
+        click.echo(f"🔄 Restart your terminal to apply changes")
     else:
-        print("ℹ️  No samosa completions found to remove")
+        click.echo("ℹ️  No samosa completions found to remove")
