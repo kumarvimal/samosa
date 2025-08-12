@@ -4,10 +4,9 @@ from datetime import datetime
 from pathlib import Path
 
 import click
-from invoke import Context
+from mypy.types import names
 
-# Import the AliasedGroup from utils module
-from ..utils import AliasedGroup
+from samosa.utils import AliasedGroup, invoked
 
 
 @click.group(cls=AliasedGroup)
@@ -15,94 +14,92 @@ def git():
     """Git version control commands."""
 
 
-@git.command()
-def status():
+@git.command(name="status")
+@invoked
+def status(c):
     """Show git status."""
-    ctx = Context()
-    ctx.run("git status")
+    c.run("git status", pty=True)
 
 
-@git.command()
+@git.command(name="add")
 @click.option("--files", default=".", help="Files to add (default: all files)")
-def add(files):
+@invoked
+def add(c, _, files):
     """Add files to git staging."""
-    ctx = Context()
-    ctx.run(f"git add {files}")
+    c.run(f"git add {files}", pty=True)
 
 
-@git.command()
+@git.command(name="commit")
 @click.argument("message")
-def commit(message):
+@invoked
+def commit(c, _, message):
     """Create a git commit."""
-    ctx = Context()
-    ctx.run(f'git commit -m "{message}"')
+    c.run(f'git commit -m "{message}"', pty=True)
 
 
-@git.command()
+@git.command(name="push")
 @click.option("--remote", default="origin", help="Remote name (default: origin)")
 @click.option("--branch", help="Branch to push (default: current branch)")
-def push(remote, branch):
+@invoked
+def push(c, _, remote, branch):
     """Push changes to remote."""
-    ctx = Context()
     if branch:
-        ctx.run(f"git push {remote} {branch}")
+        c.run(f"git push {remote} {branch}", pty=True)
     else:
-        ctx.run(f"git push {remote}")
+        c.run(f"git push {remote}", pty=True)
 
 
-@git.command()
+@git.command(name="pull")
 @click.option("--remote", default="origin", help="Remote name (default: origin)")
 @click.option("--branch", help="Branch to pull (default: current branch)")
-def pull(remote, branch):
+@invoked
+def pull(c, _, remote, branch):
     """Pull changes from remote."""
-    ctx = Context()
     if branch:
-        ctx.run(f"git pull {remote} {branch}")
+        c.run(f"git pull {remote} {branch}", pty=True)
     else:
-        ctx.run(f"git pull {remote}")
+        c.run(f"git pull {remote}", pty=True)
 
 
-@git.command()
+@git.command(name="merge")
 @click.argument("branch")
-def merge(branch):
+@invoked
+def merge(c, _, branch):
     """Merge a branch into current branch."""
-    ctx = Context()
-    ctx.run(f"git merge {branch}")
+    c.run(f"git merge {branch}", pty=True)
 
 
-@git.command()
+@git.command(name="checkout")
 @click.argument("branch")
 @click.option("--create", is_flag=True, help="Create new branch if it doesn't exist")
-def checkout(branch, create):
+@invoked
+def checkout(c, _, branch, create):
     """Checkout a branch."""
-    ctx = Context()
     if create:
-        ctx.run(f"git checkout -b {branch}")
+        c.run(f"git checkout -b {branch}", pty=True)
     else:
-        ctx.run(f"git checkout {branch}")
+        c.run(f"git checkout {branch}", pty=True)
 
 
-@git.command()
+@git.command(name="sync")
 @click.option("--remote", default="origin", help="Remote name (default: origin)")
 @click.option("--main-branch", help="Main branch name (auto-detected if not provided)")
-def sync(remote, main_branch):
+@invoked
+def sync(c, _, remote, main_branch):
     """Sync current branch with remote main."""
-    ctx = Context()
 
     try:
-        # Get current branch name
-        result = ctx.run("git branch --show-current", hide=True)
+        result = c.run("git branch --show-current", hide=True)
         current_branch = result.stdout.strip()
 
         if not current_branch:
             click.echo("❌ Could not determine current branch", err=True)
             return
 
-        # Auto-detect main branch if not provided
         if not main_branch or main_branch.strip() == "":
             try:
                 # Try to get the default branch from remote HEAD
-                result = ctx.run(
+                result = c.run(
                     f"git symbolic-ref refs/remotes/{remote}/HEAD", hide=True, warn=True
                 )
                 if result.ok:
@@ -110,7 +107,7 @@ def sync(remote, main_branch):
                 else:
                     # Fallback: try common main branch names
                     for branch in ["main", "master", "develop"]:
-                        result = ctx.run(
+                        result = c.run(
                             f"git ls-remote --heads {remote} {branch}",
                             hide=True,
                             warn=True,
@@ -130,10 +127,10 @@ def sync(remote, main_branch):
         )
 
         click.echo("📥 Fetching latest changes...")
-        ctx.run(f"git fetch {remote}")
+        c.run(f"git fetch {remote}")
 
         click.echo(f"🔀 Rebasing {current_branch} onto {remote}/{main_branch}...")
-        ctx.run(f"git rebase {remote}/{main_branch}")
+        c.run(f"git rebase {remote}/{main_branch}", pty=True)
 
         click.echo("✅ Branch synced successfully!")
 
@@ -146,17 +143,16 @@ def sync(remote, main_branch):
         raise click.ClickException("Failed to sync branch") from e
 
 
-@git.command()
-def browse():
+@git.command(name="open")
+@invoked
+def browse(c):
     """Open current git repository in GitHub in the browser."""
     import re
     import webbrowser
 
-    ctx = Context()
-
     try:
         # Get the remote URL
-        result = ctx.run("git remote get-url origin", hide=True)
+        result = c.run("git remote get-url origin", hide=True)
         remote_url = result.stdout.strip()
 
         if not remote_url:
@@ -220,13 +216,12 @@ git.add_command_with_aliases(backup, name="backup", aliases=["b"])
 
 
 @backup.command("add")
-def backup_add():
+@invoked
+def backup_add(c):
     """Create a backup branch from the current branch."""
-    ctx = Context()
-
     try:
         # Get current branch name
-        result = ctx.run("git branch --show-current", hide=True)
+        result = c.run("git branch --show-current", hide=True)
         current_branch = result.stdout.strip()
 
         if not current_branch:
@@ -239,7 +234,7 @@ def backup_add():
 
         if click.confirm("❓ Create backup branch?"):
             click.echo(f"💾 Creating backup branch: {backup_branch}")
-            ctx.run(f"git branch {backup_branch}")
+            c.run(f"git branch {backup_branch}")
             click.echo(f"✅ Backup branch '{backup_branch}' created successfully!")
         else:
             click.echo("❌ Backup creation cancelled")
@@ -251,13 +246,13 @@ def backup_add():
 
 
 @backup.command("list")
-def backup_list():
+@invoked
+def backup_list(c):
     """List all backup branches for the current branch."""
-    ctx = Context()
 
     try:
         # Get current branch name
-        result = ctx.run("git branch --show-current", hide=True)
+        result = c.run("git branch --show-current", hide=True)
         current_branch = result.stdout.strip()
 
         if not current_branch:
@@ -267,7 +262,7 @@ def backup_list():
         click.echo(f"🔍 Backup branches for '{current_branch}':")
 
         # Get all branches and filter for backups of current branch
-        result = ctx.run("git branch -a", hide=True)
+        result = c.run("git branch -a", hide=True)
         branches = result.stdout.strip().split("\n")
 
         backup_pattern = f"backup/{current_branch}-"
@@ -302,13 +297,12 @@ def backup_list():
 @click.option(
     "--branch", help="Delete specific backup branch by name (without backup/ prefix)"
 )
-def backup_delete(delete_all, branch):
+@invoked
+def backup_delete(c, _, delete_all, branch):
     """Delete backup branches for the current branch."""
-    ctx = Context()
-
     try:
         # Get current branch name
-        result = ctx.run("git branch --show-current", hide=True)
+        result = c.run("git branch --show-current", hide=True)
         current_branch = result.stdout.strip()
 
         if not current_branch:
@@ -343,7 +337,7 @@ def backup_delete(delete_all, branch):
                 backup_branch = branch
 
             # Check if branch exists
-            result = ctx.run("git branch", hide=True)
+            result = c.run("git branch", hide=True)
             branches = result.stdout.strip().split("\n")
 
             branch_exists = False
@@ -379,7 +373,7 @@ def backup_delete(delete_all, branch):
                         )
                         return
 
-                    ctx.run(f"git branch -D {backup_branch}")
+                    c.run(f"git branch -D {backup_branch}")
                     click.echo(
                         f"✅ Successfully deleted backup branch '{backup_branch}'"
                     )
@@ -393,7 +387,7 @@ def backup_delete(delete_all, branch):
             click.echo(f"🗑️  Deleting all backup branches for '{current_branch}'...")
 
             # Get all local branches and filter for backups of current branch
-            result = ctx.run("git branch", hide=True)
+            result = c.run("git branch", hide=True)
             branches = result.stdout.strip().split("\n")
 
             backup_pattern = f"backup/{current_branch}-"
@@ -437,7 +431,7 @@ def backup_delete(delete_all, branch):
                             )
                             continue
 
-                        ctx.run(f"git branch -D {backup}")
+                        c.run(f"git branch -D {backup}")
                         click.echo(f"  🗑️  Deleted: {backup}")
                         deleted_count += 1
                     except Exception as e:
@@ -495,10 +489,9 @@ git.add_command_with_aliases(worktree, name="worktree", aliases=["w"])
     default=True,
     help="Fetch latest remote changes before creating worktree (default: True)",
 )
-def worktree_add(branch, base, fetch):
+@invoked
+def worktree_add(c, _, branch, base, fetch):
     """Create a git worktree one directory up with project-name-branch format."""
-    ctx = Context()
-
     current_dir = Path.cwd()
     project_name = current_dir.name
 
@@ -518,14 +511,14 @@ def worktree_add(branch, base, fetch):
         # Fetch latest changes if requested
         if fetch:
             click.echo("🔄 Fetching latest changes...")
-            ctx.run("git fetch --all", warn=True)
+            c.run("git fetch --all", warn=True)
 
         # Check if branch exists locally
-        local_result = ctx.run("git branch --list", hide=True, warn=True)
+        local_result = c.run("git branch --list", hide=True, warn=True)
         local_branches = local_result.stdout if local_result.ok else ""
 
         # Check if branch exists remotely
-        remote_result = ctx.run("git branch -r", hide=True, warn=True)
+        remote_result = c.run("git branch -r", hide=True, warn=True)
         remote_branches = remote_result.stdout if remote_result.ok else ""
 
         branch_exists_locally = (
@@ -535,23 +528,23 @@ def worktree_add(branch, base, fetch):
 
         if branch_exists_locally:
             click.echo(f"📍 Branch '{branch}' exists locally, creating worktree...")
-            ctx.run(f"git worktree add {worktree_path} {branch}")
+            c.run(f"git worktree add {worktree_path} {branch}")
 
         elif branch_exists_remotely:
             click.echo(
                 f"🌐 Branch '{branch}' exists on remote, creating tracking worktree..."
             )
             # Create worktree and set up proper tracking
-            ctx.run(f"git worktree add -b {branch} {worktree_path} origin/{branch}")
+            c.run(f"git worktree add -b {branch} {worktree_path} origin/{branch}")
 
         else:
             # Create new branch
             if base and base.strip():
                 click.echo(f"🆕 Creating new branch '{branch}' from '{base}'...")
-                ctx.run(f"git worktree add -b {branch} {worktree_path} {base}")
+                c.run(f"git worktree add -b {branch} {worktree_path} {base}")
             else:
                 click.echo(f"🆕 Creating new branch '{branch}' from current HEAD...")
-                ctx.run(f"git worktree add -b {branch} {worktree_path}")
+                c.run(f"git worktree add -b {branch} {worktree_path}")
 
         click.echo("✅ Worktree created successfully!")
         click.echo(f"📁 Location: {worktree_path}")
@@ -559,7 +552,7 @@ def worktree_add(branch, base, fetch):
 
         # Show branch tracking info
         try:
-            tracking_info = ctx.run(
+            tracking_info = c.run(
                 f"cd {worktree_path} && git branch -vv | head -1", hide=True, warn=True
             )
             if tracking_info.ok:
@@ -587,10 +580,9 @@ def worktree_add(branch, base, fetch):
 
 @worktree.command("remove")
 @click.argument("branch")
-def worktree_remove(branch):
+@invoked
+def worktree_remove(c, _, branch):
     """Remove a git worktree by branch name."""
-    ctx = Context()
-
     # Get the current project directory name
     current_dir = Path.cwd()
     project_name = current_dir.name
@@ -613,7 +605,7 @@ def worktree_remove(branch):
             return
 
         # Remove the worktree
-        ctx.run(f"git worktree remove {worktree_path}")
+        c.run(f"git worktree remove {worktree_path}")
 
         click.echo("✅ Worktree removed successfully!")
         click.echo(f"🗑️  Removed: {worktree_path}")
@@ -623,7 +615,7 @@ def worktree_remove(branch):
         # Try force remove if normal remove fails
         try:
             click.echo("🔄 Attempting force removal...")
-            ctx.run(f"git worktree remove --force {worktree_path}")
+            c.run(f"git worktree remove --force {worktree_path}")
             click.echo("✅ Worktree force removed successfully!")
         except Exception as fe:
             click.echo(f"❌ Force removal also failed: {fe}", err=True)
@@ -631,8 +623,8 @@ def worktree_remove(branch):
 
 
 @worktree.command("list")
-def worktree_list():
+@invoked
+def worktree_list(c):
     """List all git worktrees."""
-    ctx = Context()
     click.echo("📂 Git Worktrees:")
-    ctx.run("git worktree list")
+    c.run("git worktree list")

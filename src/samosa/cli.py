@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 
 import click
+from invoke import Context as InvokeContext
 
 from .commands.dev import dev
 from .commands.git import git
@@ -46,9 +47,12 @@ def get_version():
 
 
 @click.group(cls=AliasedGroup)
+@click.pass_context
 @click.version_option(version=get_version(), prog_name="samosa")
-def main():
+def main(cctx):
     """Samosa - A Python CLI tool for task automation and project management."""
+    cctx.ensure_object(dict)
+    cctx.obj["invoke_ctx"] = InvokeContext()
 
 
 # Add command groups with aliases

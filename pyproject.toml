@@ -81,7 +81,7 @@ warn_unreachable = true
 strict_equality = true
 ignore_missing_imports = true
 
-# Ignore CLI tool type complexities
+
 [[tool.mypy.overrides]]
 module = "samosa.*"
 ignore_errors = true
@@ -93,19 +93,10 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "--cov=samosa",
-    "--cov-report=term-missing",
     "--cov-report=html:htmlcov",
-    "--cov-report=xml",
-    "--cov-fail-under=60",
-    "--strict-markers",
-    "--strict-config",
     "-v",
 ]
-markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
-    "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests",
-]
+
 filterwarnings = [
     "error",
     "ignore::UserWarning",

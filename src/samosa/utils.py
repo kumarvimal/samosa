@@ -1,6 +1,9 @@
 """Utility classes and functions for samosa CLI."""
 
+import inspect
+
 import click
+from invoke import UnexpectedExit
 
 
 class AliasedGroup(click.Group):
@@ -59,3 +62,33 @@ class AliasedGroup(click.Group):
         if commands:
             with formatter.section("Commands"):
                 formatter.write_dl(commands)
+
+
+def invoked(f):
+    sig = inspect.signature(f)
+    num_params = len(
+        [
+            p
+            for p in sig.parameters.values()
+            if p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD)
+        ]
+    )
+
+    @click.pass_context
+    def new_func(click_ctx, *args, **kwargs):
+        invoke_ctx = click_ctx.obj["invoke_ctx"]
+        try:
+            if num_params == 1:
+                return f(invoke_ctx, *args, **kwargs)
+            elif num_params >= 2:
+                return f(invoke_ctx, click_ctx, *args, **kwargs)
+            else:
+                return f(*args, **kwargs)
+        except UnexpectedExit as e:
+            # Graceful fail: match Invoke CLI style
+            click.secho(
+                f"[Invoke] Command failed with exit code {e.result.exited}", fg="red"
+            )
+            click_ctx.exit(e.result.exited)
+
+    return new_func
